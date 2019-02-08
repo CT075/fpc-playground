@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Fpc.Ast
   ( Var
@@ -22,15 +23,15 @@ import Text.Show.Deriving
 import Data.Eq.Deriving
 
 {- TODO: change to use De Bruijin indices -}
-type Var = String
+type Var = Int
 
-type Bind = (,)
+data Bind a b = Abs b deriving (Eq, Show, Functor, Show1)
 
 unbind :: (Bind Var a) -> (Var, a)
-unbind = id
+unbind (Abs a) = (0, a)
 
 bind :: Var -> a -> Bind Var a
-bind v x = (v,x)
+bind v x = Abs x
 
 data TTyp a = Nat
             | a :-> a
@@ -83,8 +84,20 @@ fixp = curry $ Fix . uncurry FixP
 
 -- subst e' x e = [e'/x]e
 subst :: Exp -> Var -> Exp -> Exp
-subst e' x = cata (go e' x)
+subst e' _ e = cata (go e') e 0
   where
-    go e' x (EVar v) = if x == v then e' else expvar v
-    go e' x t = Fix t
+    go :: Exp -> TExp (Int -> Exp) -> Int -> Exp
+    go e' (EVar v) i = if i == v then e' else expvar v
+    go e' (Ifz f f0 xf1) i =
+      let (v, f1) = unbind xf1
+       in ifz (f i) (f0 i) $ bind v (f1 $ i+1)
+    go e' (Lam ty xf) i =
+      let (v, f) = unbind xf
+       in lam ty $ bind v (f $ i+1)
+    go e' (FixP ty xf) i =
+      let (v, f) = unbind xf
+       in fixp ty $ bind v (f $ i+1)
+    go e' Z _ = zero
+    go e' (Succ f) i = succ (f i)
+    go e' (Ap f1 f2) i = ap (f1 i) (f2 i)
 

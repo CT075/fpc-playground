@@ -1,4 +1,10 @@
 
+module Fpc.Eval
+  ( trystep
+  , eval
+  )
+  where
+
 import Prelude hiding (succ)
 
 import Control.Arrow

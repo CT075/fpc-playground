@@ -1,4 +1,9 @@
 
+module Fpc.Statics
+  ( synthtype
+  )
+  where
+
 import Prelude hiding (lookup)
 
 import Control.Arrow
@@ -14,7 +19,7 @@ lookupTy :: Var -> Env -> Maybe Typ
 lookupTy = lookup
 
 insertTy :: Var -> Typ -> Env -> Env
-insertTy = insert
+insertTy _ ty env = insert 0 ty (mapKeys (+1) env)
 
 -- I think this can be written much more concisely using monadic cata
 synthtype' :: TExp (Env -> Maybe Typ) -> Env -> Maybe Typ
@@ -34,7 +39,8 @@ synthtype' (Ifz f f0 xf1) env = do
   return t0
 synthtype' (Lam t xf) env = do
   let (v, f) = unbind xf
-  f $ insertTy v t env
+  t2 <- f $ insertTy v t env
+  return (t -:> t2)
 synthtype' (Ap f0 f1) env = do
   tfunc <- f0 env
   (t1 :-> t2) <- return $ unfix tfunc
